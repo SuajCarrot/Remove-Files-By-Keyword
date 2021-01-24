@@ -89,7 +89,8 @@ Exception details: {id}
                     else:
                         # Register the removed file
                         removed_files.append(i)
-                        print("Done.")
+                        if verbose:
+                            print("Done.")
             # In case it is a directory, try recursivity
             elif os.path.isdir(f"{directory}/{i}"):
                 if recursive:
@@ -97,7 +98,7 @@ Exception details: {id}
                     # directory being the sub-directory
                     main_func(keyword, f"{directory}/{i}",
                               extract, k_r, verbose, ask,
-                              recursive)
+                              recursive, ncs, log)
                     if verbose:
                         print(f"{i} is a directory. Removing \
 files inside of it...")
@@ -118,9 +119,7 @@ files inside of it...")
                 f.write("No files were removed.\n\n")
 
 
-# Default option values, they are handled like this instead
-# of putting them directly in the function in case the user
-# changes them
+# Default option values
 
 # TO-DO: Allow the user to change the default values with a
 # file
@@ -241,8 +240,6 @@ Arguments/Options:
             if not os.path.isdir(sys.argv[i]):
                 print(f"The directory {sys.argv[i]} doesn't exist.")
                 sys.exit(0)
-            else:
-                directory = sys.argv[i]
         elif i == (argc - 2):  # It could be the keyword
             pass
 
@@ -251,7 +248,7 @@ Arguments/Options:
 
 # If extract_dir wasn't changed, convert it into a sub-directory
 if extract_dir == "unknown":
-    extract_dir = directory + "/Extracted"
+    extract_dir = sys.argv[argc - 1] + "/Extracted"
 
 # Call the main function with the collected arguments
 # The last two arguments should be the keyword and the dir
