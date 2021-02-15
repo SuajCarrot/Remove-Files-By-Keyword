@@ -13,12 +13,18 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 
-import sys, os
+import yaml, sys, os
 from os.path import isdir as is_dir
 from os.path import isfile as is_file
-from os.path import join as join_dir
+from os.path import join as join_dirs
 from datetime import datetime, date
 from shutil import copytree
+
+from assets.lang import *
+
+with open(join_dirs(os.getcwd(), "assets", "config.yaml"), "rb") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+msg = spanish_messages if config["lang"] == "Spanish" else english_messages
 
 # Meaning of the name of the arguments that we'll use:
 # dir is directory
@@ -43,28 +49,19 @@ def main( kw, path, k_r, ext, ext_dir, verb, ask, rec, ncs, log, log_dir ):
     vprint = print if verb else void_function
 
     if ext:
+        vprint(msg["creating_ext_dir"])
         try:
             copytree(path, ext_dir)
-            vprint("Creating sub-directory \"Extracted\"...")
         except FileExistsError:
             # We could try a different name, but it could be used too, and
             # the next one too...
-            conf = input("The sub-directory \"Extracted\" already exists, \
-use it instead? [y/N (abort)]")
+            conf = input(msg["ext_dir_already_exists"])
             path = ext_dir if conf.lower() in ("y", "yes") else sys.exit(0)
-        else:  # If no exceptions raised, change the path to the sub-dir
+        else:
             path = ext_dir
-    # These empty else blocks are just for readability and to make sure the
-    # code doesn't do anything weird later
-    else:
-        pass
-    vprint(f"Removing all files in {path}...")
 
-    if ncs:  # NoCaseSensitivity argument
-        kw = kw.lower()
-    else:
-        pass
-
+    vprint(msg["removing_files_in_path"] % (path))
+    kw = kw.lower() if ncs else kw  # NoCaseSensitive argument
     removed_files = []  # For the log argument
 
     # Iterate over the files in the path
@@ -73,26 +70,21 @@ use it instead? [y/N (abort)]")
         # str.lower to i itself so we can use the os.remove method with it
         fname = i.lower() if ncs else i
 
-        # These conditions are simpler than they look
         if (kw in fname and k_r == "r") or (kw not in fname and k_r == "k"):
             # If the ask arg is False, the conf becomes True by default
-            conf = input("Remove {i}? [Y/n] ") if ask else True
+            conf = input(msg["remove_i?"] % (i)) if ask else True
             if conf.lower() in ("n", "no"):
-                vprint("{i} will not be removed.")
+                vprint(msg["i_not_removed"] % (i))
             else:
-                # The end parameter is there for printing sugar, see the next
-                # print functions to see what I'm referring to
-                vprint(f"Removing {i}...", end= '')
-                try:  # Try to remove the file
+                vprint(msg["removing_i"] % (i), end='')
+                try:
                     os.remove(join_dirs(path, i))
                 # This is to avoid collapsing if a file raises an exception
-                except Exception as id:
-                    print(f"An exception occurred.\nException Details: {id}")
-                else:  # If it didn't, register the removed file
+                except Exception as identifier:
+                    print(msg["exception_occurred"] % (identifier))
+                else:
                     removed_files.append(i)
-                    vprint("Done.")
-        else:  # Again, just for readability and to avoid weird stuff
-            pass
+                    vprint(msg["done_msg"])
 
     # If the rec argument is True, iterate over the directories in the path
     sub_dirs = [ j for j in os.listdir(path) if is_dir( join_dirs(path, j) ) ]
@@ -102,18 +94,15 @@ use it instead? [y/N (abort)]")
             main( kw, join_dirs(path, i), k_r, ext, ext_dir, verb, ask, rec,
                 ncs, log, log_dir )
     else:
-        vprint("Finished.")
+        vprint(msg["finished_msg"])
 
     if log and len(removed_files) > 0:
         # Name of the log file with the current date and time
         log_name = "{} {} log.txt".format(date.today().strftime("%Y-%m-%d"),
             datetime.now().strftime("%H:%M"))
         with open(log_file_name, "a") as f:
-            f.write(f"List of files removed in {path}:\n")
+            f.write(msg["list_of_files_removed_in_path"] % (path))
             f.writelines(removed_files)
-    else:
-        pass
-# End of the main function
 
 
 # Check for the arguments
@@ -122,66 +111,16 @@ args, argc = sys.argv, len(sys.argv)  # This just improves readability
 
 # Check if we have enough arguments
 if argc == 0:
-    print("No arguments were given.\nUse \"-h\" for more details.")
+    print(msg["no_args_were_given"])
     sys.exit(0)
 
 # Check if it's the help argument
 elif argc == 1:
-    if args[0] == "-h" or args[0] == "--help":
-        print("""
-Remove the files inside a directory that have the specified
-keyword in their name. Usage:
-
-CLI> python3 RemoveFiles.py [arguments] [keyword] [directory]
-
-Some arguments can also have sub-arguments. For example:
-
-CLI> python3 RemoveFiles.py -e /my/dir -da hello /foo/bar
-                            ^     ^
-Could be interpreted as: extract here
-If your directory has spaces, use quotes:
-
-\"/dire c/tory w/ith s/pa ces/\"
-
-Unrecognized arguments will be ignored.
-
-Arguments/Options:
-
--h, --help       Get information about the program.
-
--e, --extract    Copy the given directory and its files
-                 into a sub-directory and manipulate the
-                 files inside of it.
-                 Optional: If an existing directory is
-                 specified after the argument, use it
-                 instead of creating a sub-directory.
-
--k, --keep       Instead of removing the files, keep them
-                 and remove the ones that don't have the
-                 keyword in their name.
-
--v, --verbose    Print the action being done.
-
--da, --dont-ask  Don't ask before deleting a file.
-
--r, --recursive  Also manipulate the files inside
-                 sub-directories.
-
--ncs, --no-case-sens  Ignore all uppercase letters,
-                      including the ones in the keyword.
-
--l, --log        Write the list of removed files to a
-                 TXT file in the same directory where
-                 the script is located.
-                 Optional: If an existing directory is
-                 specified after the argument, write the
-                 log to it instead of using the
-                 directory where the script is located.
-
-""")
+    if args[0] == "-h":
+        print(msg["help_msg"])
         sys.exit(0)
     else:
-        print("Missing argument: keyword\nUse \"-h\" for more details.")
+        print(msg["missing_arg"])
         sys.exit(0)
 
 # The last 2 arguments should be the keyword and the path
@@ -190,39 +129,37 @@ else:
     path = args[argc - 1]
     kw = args[argc - 2]
     if not is_dir(path):
-        print(f"The directory {args[argc - 1]} does not exist.")
+        print(msg["dir_does_not_exist"] % (path))
         sys.exit(0)
-    else:
-        pass
 
     if "/" or "\\" in kw:
-        print(f"The keyword cannot have the \"/\" or \"\\\" characters.")
+        print(msg["keyword_cant_have_chars"])
         sys.exit(0)
-    else:
-        pass
 
-# Iterate over the arguments
-# TO-DO: Change this method, it is horribly unoptimized
-#    We could use something like "if arg in args arg else default"
-# TO-DO: Add an argument to print the total execution time
-# TO-DO: Allow the user to change these values with a file
-for i in args:
-    # Structure:
-    # value if: (short argument is set or long argument is set) else: default
-
-    k_r = "k" if i == "-k" or i == "--keep" else "r"
-    ext = True if i == "-e" or i == "--extract" else False
-    # Only valid if the previous argument was -e or --extract
-    ext_dir = i if ( args[i - 1] == "-e" or args[i - 1] == "--extract" ) \
-        and is_dir(i) else join_dirs(args[argc - 1], "Extracted")
-    verb = True if i == "-v" or i == "--verbose" else False
-    ask = False if i == "-da" or i == "--dont-ask" else True
-    rec = True if i == "-r" or i == "--recursive" else False
-    ncs = True if i == "-ncs" or i == "--no-case-sens" else False
-    log = True if i == "-l" or i == "--log" else False
-    # Only valid if the previous argument was -l or --log
-    log_dir = i if ( args[i - 1] == "-l" or args[i - 1] == "--log" ) \
-        and is_dir(i) else os.getcwd()
+# Check for the arguments
+# Structure: arg = (DefaultValue, ValueIfTrue)[arg in args]
+# The arguments that have sub-arguments are checked differently to allow
+# nested conditions which are necessary/really convenient in this case
+k_r = (config["k_r"], "k")["-k" in args]
+if "-e" in args:
+    ext = True
+    poss_dir = args.index("-e") + 1
+    ext_dir = args[poss_dir] if is_dir(poss_dir) else \
+        join_dirs(args[argc - 1], "Extracted")
+else:
+    ext = config["ext"]
+    ext_dir = join_dirs(args[argc - 1], "Extracted")
+verb = (config["verb"], True)["-v" in args]
+ask = (config["ask"], False)["-da" in args]
+rec = (config["rec"], True)["-r" in args]
+ncs = (config["ncs"], True)["-ncs" in args]
+if "-l" in args:
+    log = True
+    poss_dir = args.index("-e") + 1
+    log_dir = args[poss_dir] if is_dir(poss_dir) else os.getcwd()
+else:
+    log = config["ext"]
+    log_dir = os.getcwd()
 
 # Call the main function with the collected arguments
 main( kw, path, k_r, ext, ext_dir, verb, ask, rec, ncs, log, log_dir )
