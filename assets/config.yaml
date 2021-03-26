@@ -1,0 +1,12 @@
+# YAML configuration file
+
+k_r: r
+ext: False
+verb: False
+ask: True
+rec: False
+ncs: False
+log: False
+
+lang: English
+
